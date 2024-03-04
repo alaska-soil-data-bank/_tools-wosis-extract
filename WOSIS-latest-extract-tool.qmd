@@ -1,0 +1,165 @@
+# WOSIS-Latest Extract Tool for Alaska
+:::{.callout-warning}
+NOTE: rgdal is deprecated as of 2023 and two packages required in this workflow (gdalUtils and gdalUtilities) are dependent on rgdal. Therefore, a previous version of R is required (4.2.1 or earlier) to run this workflow. In a separate set of tools. I have set up a docker image built on rocker/geospatial:4.2.1 that includes both gdalUtils and gdalUtilities of out the box: https://hub.docker.com/r/nicjelinski/wosis-latest-r-extract
+
+Therefore, this script assumes a version of R 4.2.1 or earlier. Anything else may fail to perform as expected. The flow here is built on D. Rossiter's WOSIS-Latest pull tutorial \@ [https://www.isric.org/accessing-wosis-using-r](https://www.isric.org/accessing-wosis-using-r).
+:::
+
+## Load required libraries
+
+```{{r}}
+library(gdalUtilities) 
+library(gdalUtils) 
+library(sf) 
+library(stars)  
+library(dplyr)
+library(ggplot2)        # gpplot graphics
+library(maps)           # optional -- for boundary polygons
+library(mapdata)
+```
+
+## Identify and display information about specific spatial data source drivers (GeoPackage, Esri Shapefile, and CSV) available through the sf package in R
+
+```{{r}}
+drivers <- sf::st_drivers()
+# print(drivers)
+ix <- grep("GPKG", drivers$name,  fixed=TRUE)
+drivers[ix,]
+
+ix <- grep("ESRI", drivers$name,  fixed=TRUE)
+drivers[ix,]
+
+ix <- grep("CSV", drivers$name,  fixed=TRUE)
+drivers[ix,]
+```
+
+## Define the WFS source and retrieve information about the layers available
+```{{r}}
+wfs <- "WFS:https://maps.isric.org/mapserv?map=/map/wosis_latest.map"
+
+(layers.info <- sf::st_layers(wfs))
+
+# just a quick check on number of profiles available by country
+profiles.info <-
+  gdalUtils::ogrinfo(wfs, layer = "ms:wosis_latest_profiles",
+                     ro = TRUE, so = TRUE, q = TRUE)
+cat(profiles.info, sep="\n")
+```
+
+## Pull Alaska data from the WFS source
+```{{r}}
+#Split Alaska into E and W because crosses 180 boundary, takes < 1min
+alaskaE.profiles.info <-
+  gdalUtils::ogrinfo(wfs, ro=TRUE, so=TRUE, q=FALSE,
+                     layer="ms:wosis_latest_profiles",
+                     spat=c(-179.999, 51.214183, -129.83, 71.365162),
+                     verbose = FALSE)
+head(alaskaE.profiles.info, 8)
+
+ix.f <- grep("Feature Count", alaskaE.profiles.info)
+alaskaE.profiles.info[ix.f]
+```
+
+## Pull WOSIS profiles from AK east in bounding box as .csv
+```{{r}}
+wosis.dir.name.alaskaeast <- "./wosis_latest/alaskaeast"
+if (!file.exists(wosis.dir.name.alaskaeast)) dir.create(wosis.dir.name.alaskaeast)
+
+src.layer.name <- "ms:wosis_latest_profiles"
+dst.layer.name <- "wosis_latest_profiles_alaskaeast"
+
+(dst.target.name <- paste0(wosis.dir.name.alaskaeast,"/",dst.layer.name,".csv"))
+
+# This takes ~ 2 minutes as a csv for AK east
+if (!file.exists(dst.target.name)) {
+  gdalUtilities::ogr2ogr(src=wfs, 
+                         dst=dst.target.name,
+                         layer=src.layer.name,
+                         f="CSV",
+                         spat=c(-179.9999, 51.214183, -129.83, 71.365162),
+                         overwrite=TRUE)
+}
+round(file.info(dst.target.name)$size/1024,1)
+```
+
+## Read in pulled .csv
+```{{r}}
+layer.name <- "wosis_latest_profiles_alaskaeast"
+system.time(
+  profiles.alaskaeast <- read.csv(paste0(wosis.dir.name.alaskaeast, "/",layer.name,".csv"),
+                              stringsAsFactors = FALSE)
+)
+
+names(profiles.alaskaeast)
+```
+
+## Convert to vector using lat/lon available in .csv
+```{{r}}
+profiles.alaskaeast <- st_as_sf(profiles.alaskaeast, 
+                            coords = c("longitude", "latitude"),
+                            crs = 4326)
+class(profiles.alaskaeast)
+```
+
+## Inspect the data
+```{{r}}
+table(profiles.alaskaeast$cwrb_reference_soil_group)
+
+ggplot(data=profiles.alaskaeast) +
+  aes(col=cwrb_reference_soil_group) +
+  geom_sf() +
+  xlim(-180, -125)
+```
+
+## Pull WOSIS profiles from AK est in bounding box as .csv
+```{{r}}
+wosis.dir.name.alaskawest <- "./wosis_latest/alaskawest"
+if (!file.exists(wosis.dir.name.alaskawest)) dir.create(wosis.dir.name.alaskawest)
+
+src.layer.name <- "ms:wosis_latest_profiles"
+dst.layer.name <- "wosis_latest_profiles_alaskawest"
+
+(dst.target.name <- paste0(wosis.dir.name.alaskawest,"/",dst.layer.name,".csv"))
+
+# This takes ~ 2 minutes as a csv for AK west
+if (!file.exists(dst.target.name)) {
+  gdalUtilities::ogr2ogr(src=wfs, 
+                         dst=dst.target.name,
+                         layer=src.layer.name,
+                         f="CSV",
+                         spat=c(-179.9999, 51.214183, -129.83, 71.365162),
+                         overwrite=TRUE)
+}
+round(file.info(dst.target.name)$size/1024,1)
+```
+
+## Read in pulled .csv
+```{{r}}
+layer.name <- "wosis_latest_profiles_alaskawest"
+system.time(
+  profiles.alaskawest <- read.csv(paste0(wosis.dir.name.alaskawest, "/",layer.name,".csv"),
+                              stringsAsFactors = FALSE)
+)
+
+names(profiles.alaskaeast)
+```
+
+## Convert to vector using lat/lon available in .csv
+```{{r}}
+profiles.alaskawest <- st_as_sf(profiles.alaskawest, 
+                            coords = c("longitude", "latitude"),
+                            crs = 4326)
+class(profiles.alaskawest)
+```
+
+## Inspect the data
+```{{r}}
+table(profiles.alaskawest$cwrb_reference_soil_group)
+
+ggplot(data=profiles.alaskawest) +
+  aes(col=cwrb_reference_soil_group) +
+  geom_sf() +
+  xlim(-180, -125)
+```
+
+

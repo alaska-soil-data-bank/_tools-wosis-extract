@@ -1,0 +1,166 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "AKSDB Tools and Resources",
+    "section": "",
+    "text": "This e-book contains documentation for tools developed by the Alaska Soil Data Bank project.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>index.html</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html",
+    "href": "WOSIS-latest-extract-tool.html",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "",
+    "text": "2.1 Load required libraries",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#identify-and-display-information-about-specific-spatial-data-source-drivers-geopackage-esri-shapefile-and-csv-available-through-the-sf-package-in-r",
+    "href": "WOSIS-latest-extract-tool.html#identify-and-display-information-about-specific-spatial-data-source-drivers-geopackage-esri-shapefile-and-csv-available-through-the-sf-package-in-r",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.2 Identify and display information about specific spatial data source drivers (GeoPackage, Esri Shapefile, and CSV) available through the sf package in R",
+    "text": "2.2 Identify and display information about specific spatial data source drivers (GeoPackage, Esri Shapefile, and CSV) available through the sf package in R\n```{r}\ndrivers &lt;- sf::st_drivers()\n# print(drivers)\nix &lt;- grep(\"GPKG\", drivers$name,  fixed=TRUE)\ndrivers[ix,]\n\nix &lt;- grep(\"ESRI\", drivers$name,  fixed=TRUE)\ndrivers[ix,]\n\nix &lt;- grep(\"CSV\", drivers$name,  fixed=TRUE)\ndrivers[ix,]\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#load-required-libraries",
+    "href": "WOSIS-latest-extract-tool.html#load-required-libraries",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "",
+    "text": "```{r}\nlibrary(gdalUtilities) \nlibrary(gdalUtils) \nlibrary(sf) \nlibrary(stars)  \nlibrary(dplyr)\nlibrary(ggplot2)        # gpplot graphics\nlibrary(maps)           # optional -- for boundary polygons\nlibrary(mapdata)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#define-the-wfs-source-and-retrieve-information-about-the-layers-available",
+    "href": "WOSIS-latest-extract-tool.html#define-the-wfs-source-and-retrieve-information-about-the-layers-available",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.3 Define the WFS source and retrieve information about the layers available",
+    "text": "2.3 Define the WFS source and retrieve information about the layers available\n```{r}\nwfs &lt;- \"WFS:https://maps.isric.org/mapserv?map=/map/wosis_latest.map\"\n\n(layers.info &lt;- sf::st_layers(wfs))\n\n# just a quick check on number of profiles available by country\nprofiles.info &lt;-\n  gdalUtils::ogrinfo(wfs, layer = \"ms:wosis_latest_profiles\",\n                     ro = TRUE, so = TRUE, q = TRUE)\ncat(profiles.info, sep=\"\\n\")\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#pull-alaska-data-from-the-wfs-source",
+    "href": "WOSIS-latest-extract-tool.html#pull-alaska-data-from-the-wfs-source",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.4 Pull Alaska data from the WFS source",
+    "text": "2.4 Pull Alaska data from the WFS source\n```{r}\n#Split Alaska into E and W because crosses 180 boundary, takes &lt; 1min\nalaskaE.profiles.info &lt;-\n  gdalUtils::ogrinfo(wfs, ro=TRUE, so=TRUE, q=FALSE,\n                     layer=\"ms:wosis_latest_profiles\",\n                     spat=c(-179.999, 51.214183, -129.83, 71.365162),\n                     verbose = FALSE)\nhead(alaskaE.profiles.info, 8)\n\nix.f &lt;- grep(\"Feature Count\", alaskaE.profiles.info)\nalaskaE.profiles.info[ix.f]\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-east-bounding-box-as-.csv",
+    "href": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-east-bounding-box-as-.csv",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.5 Pull WOSIS profiles from AK east bounding box as .csv",
+    "text": "2.5 Pull WOSIS profiles from AK east bounding box as .csv\n```{r}\n# set up subdirectory for AK east\nwosis.dir.name.akE &lt;- \"./wosis_latest/alaska_east\"\nif (!file.exists(wosis.dir.name.akE)) dir.create(wosis.dir.name.akE)\n\n# set source and destination for pull\nsrc.layer.name &lt;- \"ms:wosis_latest_profiles\"\ndst.layer.name &lt;- \"wosis_latest_profiles_akE\"\n(dst.target.name &lt;- paste0(wosis.dir.name.akE,\"/\",dst.layer.name,\".csv\"))\n\n# use ogr2ogr to pull the data\nif (!file.exists(dst.target.name)) {\n  gdalUtilities::ogr2ogr(src=wfs, \n                         dst=dst.target.name,\n                         layer=src.layer.name,\n                         f=\"CSV\",\n                         spat=c(-179.999, 51.214183, -129.83, 71.365162),\n                         overwrite=TRUE)\n}\n\n# check file size\nround(file.info(dst.target.name)$size/1024,1)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-east-in-bounding-box-as-.csv",
+    "href": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-east-in-bounding-box-as-.csv",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.5 Pull WOSIS profiles from AK east in bounding box as .csv",
+    "text": "2.5 Pull WOSIS profiles from AK east in bounding box as .csv\n```{r}\nwosis.dir.name.alaskaeast &lt;- \"./wosis_latest/alaskaeast\"\nif (!file.exists(wosis.dir.name.alaskaeast)) dir.create(wosis.dir.name.alaskaeast)\n\nsrc.layer.name &lt;- \"ms:wosis_latest_profiles\"\ndst.layer.name &lt;- \"wosis_latest_profiles_alaskaeast\"\n\n(dst.target.name &lt;- paste0(wosis.dir.name.alaskaeast,\"/\",dst.layer.name,\".csv\"))\n\n# This takes ~ 2 minutes as a csv for AK east\nif (!file.exists(dst.target.name)) {\n  gdalUtilities::ogr2ogr(src=wfs, \n                         dst=dst.target.name,\n                         layer=src.layer.name,\n                         f=\"CSV\",\n                         spat=c(-179.9999, 51.214183, -129.83, 71.365162),\n                         overwrite=TRUE)\n}\nround(file.info(dst.target.name)$size/1024,1)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#read-in-pulled-.csv",
+    "href": "WOSIS-latest-extract-tool.html#read-in-pulled-.csv",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.6 Read in pulled .csv",
+    "text": "2.6 Read in pulled .csv\n```{r}\nlayer.name &lt;- \"wosis_latest_profiles_alaskaeast\"\nsystem.time(\n  profiles.alaskaeast &lt;- read.csv(paste0(wosis.dir.name.alaskaeast, \"/\",layer.name,\".csv\"),\n                              stringsAsFactors = FALSE)\n)\n\nnames(profiles.alaskaeast)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#convert-to-vector-using-latlon-available-in-.csv",
+    "href": "WOSIS-latest-extract-tool.html#convert-to-vector-using-latlon-available-in-.csv",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.7 Convert to vector using lat/lon available in .csv",
+    "text": "2.7 Convert to vector using lat/lon available in .csv\n```{r}\nprofiles.alaskaeast &lt;- st_as_sf(profiles.alaskaeast, \n                            coords = c(\"longitude\", \"latitude\"),\n                            crs = 4326)\nclass(profiles.alaskaeast)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#inspect-the-data",
+    "href": "WOSIS-latest-extract-tool.html#inspect-the-data",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.8 Inspect the data",
+    "text": "2.8 Inspect the data\n```{r}\ntable(profiles.alaskaeast$cwrb_reference_soil_group)\n\nggplot(data=profiles.alaskaeast) +\n  aes(col=cwrb_reference_soil_group) +\n  geom_sf() +\n  xlim(-180, -125)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-est-in-bounding-box-as-.csv",
+    "href": "WOSIS-latest-extract-tool.html#pull-wosis-profiles-from-ak-est-in-bounding-box-as-.csv",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.9 Pull WOSIS profiles from AK est in bounding box as .csv",
+    "text": "2.9 Pull WOSIS profiles from AK est in bounding box as .csv\n```{r}\nwosis.dir.name.alaskawest &lt;- \"./wosis_latest/alaskawest\"\nif (!file.exists(wosis.dir.name.alaskawest)) dir.create(wosis.dir.name.alaskawest)\n\nsrc.layer.name &lt;- \"ms:wosis_latest_profiles\"\ndst.layer.name &lt;- \"wosis_latest_profiles_alaskawest\"\n\n(dst.target.name &lt;- paste0(wosis.dir.name.alaskawest,\"/\",dst.layer.name,\".csv\"))\n\n# This takes ~ 2 minutes as a csv for AK west\nif (!file.exists(dst.target.name)) {\n  gdalUtilities::ogr2ogr(src=wfs, \n                         dst=dst.target.name,\n                         layer=src.layer.name,\n                         f=\"CSV\",\n                         spat=c(-179.9999, 51.214183, -129.83, 71.365162),\n                         overwrite=TRUE)\n}\nround(file.info(dst.target.name)$size/1024,1)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#read-in-pulled-.csv-1",
+    "href": "WOSIS-latest-extract-tool.html#read-in-pulled-.csv-1",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.10 Read in pulled .csv",
+    "text": "2.10 Read in pulled .csv\n```{r}\nlayer.name &lt;- \"wosis_latest_profiles_alaskawest\"\nsystem.time(\n  profiles.alaskawest &lt;- read.csv(paste0(wosis.dir.name.alaskawest, \"/\",layer.name,\".csv\"),\n                              stringsAsFactors = FALSE)\n)\n\nnames(profiles.alaskaeast)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#convert-to-vector-using-latlon-available-in-.csv-1",
+    "href": "WOSIS-latest-extract-tool.html#convert-to-vector-using-latlon-available-in-.csv-1",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.11 Convert to vector using lat/lon available in .csv",
+    "text": "2.11 Convert to vector using lat/lon available in .csv\n```{r}\nprofiles.alaskawest &lt;- st_as_sf(profiles.alaskawest, \n                            coords = c(\"longitude\", \"latitude\"),\n                            crs = 4326)\nclass(profiles.alaskawest)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  },
+  {
+    "objectID": "WOSIS-latest-extract-tool.html#inspect-the-data-1",
+    "href": "WOSIS-latest-extract-tool.html#inspect-the-data-1",
+    "title": "2  WOSIS-Latest Extract Tool for Alaska",
+    "section": "2.12 Inspect the data",
+    "text": "2.12 Inspect the data\n```{r}\ntable(profiles.alaskawest$cwrb_reference_soil_group)\n\nggplot(data=profiles.alaskawest) +\n  aes(col=cwrb_reference_soil_group) +\n  geom_sf() +\n  xlim(-180, -125)\n```",
+    "crumbs": [
+      "WOSIS-Latest Extract Tool for Alaska",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>WOSIS-Latest Extract Tool for Alaska</span>"
+    ]
+  }
+]
